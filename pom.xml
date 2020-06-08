@@ -1,0 +1,596 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.2.6.RELEASE</version>
+    </parent>
+
+    <groupId>com.example</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>Parent</name>
+    <description>Parent project</description>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>common</module>
+        <module>some-service</module>
+    </modules>
+
+    <properties>
+        <!-- Core -->
+        <root-project.name>example</root-project.name>
+        <java.version>11</java.version>
+
+        <!-- Testing properties -->
+        <skipTests>false</skipTests>
+        <skipUnitTests>${skipTests}</skipUnitTests>
+        <skipIntegrationTests>${skipTests}</skipIntegrationTests>
+        <jvmArgs></jvmArgs>
+
+        <!-- Static code analysis -->
+        <sonar.coverage.exclusions>**/application/config/*</sonar.coverage.exclusions>
+
+        <!-- Plugins -->
+        <jacoco-maven-plugin.version>0.8.5</jacoco-maven-plugin.version>
+        <jib-maven-plugin.version>2.2.0</jib-maven-plugin.version>
+        <sonar-maven-plugin.version>3.7.0.1746</sonar-maven-plugin.version>
+
+        <!-- Nexus Maven Repository -->
+        <maven-repository.host-port>${env.MAVEN_REPOSITORY_URL}</maven-repository.host-port>
+
+        <!-- Nexus Docker Registry -->
+        <docker-base-image>openjdk:11-jdk-slim</docker-base-image>
+        <docker-registry-group.host-port>${env.DOCKER_REGISTRY_GROUP_URL}</docker-registry-group.host-port>
+        <docker-registry-hosted.host-port>${env.DOCKER_REGISTRY_HOSTED_URL}</docker-registry-hosted.host-port>
+        <docker-registry-username>${env.DOCKER_REGISTRY_USERNAME}</docker-registry-username>
+        <docker-registry-password>${env.DOCKER_REGISTRY_PASSWORD}</docker-registry-password>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- Enable replacements in resources -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <!-- Enable replacements in test resources -->
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+                <filtering>true</filtering>
+            </testResource>
+        </testResources>
+
+        <!-- Manage build plugins -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${sonar-maven-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>${jib-maven-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!-- Jigsaw Support -->
+        <profile>
+            <id>jigsaw-support</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <!-- JVM args for forked processes -->
+                <!--<jvmArgs>&#45;&#45;add-modules java.xml.bind</jvmArgs>-->
+            </properties>
+        </profile>
+
+        <!-- Compile with debugging info -->
+        <profile>
+            <id>compile-with-debug</id>
+            <properties>
+                <maven.compiler.debug>true</maven.compiler.debug>
+                <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
+                <maven.compiler.verbose>true</maven.compiler.verbose>
+            </properties>
+        </profile>
+
+        <!-- Repackage fat jar -->
+        <profile>
+            <id>spring-boot-repackage</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src</exists>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Enforce dependency blacklist-->
+        <profile>
+            <id>enforce-dependencies</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src</exists>
+                </file>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-enforcer-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>enforce-blacklist</id>
+                                    <phase>validate</phase>
+                                    <goals>
+                                        <goal>enforce</goal>
+                                    </goals>
+                                    <configuration>
+                                        <rules>
+                                            <bannedDependencies>
+                                                <searchTransitive>true</searchTransitive>
+                                                <!--<excludes>-->
+                                                <!--<exclude>log4j:log4j</exclude>-->
+                                                <!--</excludes>-->
+                                            </bannedDependencies>
+                                        </rules>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Write the build.properties file with POM, Git, and CI info-->
+        <profile>
+            <id>generate-build-properties</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src</exists>
+                </file>
+            </activation>
+            <properties>
+                <ci.build.number/>
+                <ci.build.tag/>
+                <ci.build.url/>
+            </properties>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <!-- Set Git info as Maven properties -->
+                        <plugin>
+                            <groupId>pl.project13.maven</groupId>
+                            <artifactId>git-commit-id-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>set-git-properties</id>
+                                    <phase>initialize</phase>
+                                    <goals>
+                                        <goal>revision</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                            <configuration>
+                                <prefix>git</prefix>
+                                <dateFormat>yyyy-MM-dd'T'HH:mm:ss.SSSZ</dateFormat>
+                                <verbose>false</verbose>
+                                <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                                <generateGitPropertiesFile>false</generateGitPropertiesFile>
+                                <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                            </configuration>
+                        </plugin>
+                        <!-- Write the build.properties file -->
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-antrun-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>generate-build-properties</id>
+                                    <phase>generate-resources</phase>
+                                    <goals>
+                                        <goal>run</goal>
+                                    </goals>
+                                    <configuration>
+                                        <target>
+                                            <mkdir dir="target/classes/"/>
+                                            <propertyfile file="target/classes/build.properties">
+                                                <entry key="pom.name" value="${project.name}"/>
+                                                <entry key="pom.groupId" value="${project.groupId}"/>
+                                                <entry key="pom.artifactId" value="${project.artifactId}"/>
+                                                <entry key="pom.version" value="${project.version}"/>
+                                                <entry key="pom.packaging" value="${project.packaging}"/>
+                                                <entry key="git.branch" value="${git.branch}"/>
+                                                <entry key="git.commit.tags" value="${git.tags}"/>
+                                                <entry key="git.commit.id" value="${git.commit.id}"/>
+                                                <entry key="git.commit.id.describe" value="${git.commit.id.describe}"/>
+                                                <entry key="git.commit.id.abbrev" value="${git.commit.id.abbrev}"/>
+                                                <entry key="git.commit.user.name" value="${git.commit.user.name}"/>
+                                                <entry key="git.commit.user.email" value="${git.commit.user.email}"/>
+                                                <entry key="git.commit.message.full"
+                                                       value="${git.commit.message.full}"/>
+                                                <entry key="git.commit.message.short"
+                                                       value="${git.commit.message.short}"/>
+                                                <entry key="git.commit.time" value="${git.commit.time}"/>
+                                                <entry key="ci.build.number" value="${ci.build.number}"/>
+                                                <entry key="ci.build.tag" value="${ci.build.tag}"/>
+                                                <entry key="ci.build.url" value="${ci.build.url}"/>
+                                            </propertyfile>
+                                        </target>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                            <dependencies>
+                                <dependency>
+                                    <groupId>commons-net</groupId>
+                                    <artifactId>commons-net</artifactId>
+                                    <version>3.3</version>
+                                </dependency>
+                                <dependency>
+                                    <groupId>org.apache.ant</groupId>
+                                    <artifactId>ant-commons-net</artifactId>
+                                    <version>1.9.6</version>
+                                </dependency>
+                                <dependency>
+                                    <groupId>org.apache.ant</groupId>
+                                    <artifactId>ant-nodeps</artifactId>
+                                    <version>1.8.1</version>
+                                </dependency>
+                            </dependencies>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>pl.project13.maven</groupId>
+                        <artifactId>git-commit-id-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Run unit tests with code coverage -->
+        <profile>
+            <id>unit-test</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src/test</exists>
+                </file>
+            </activation>
+            <properties>
+                <testAgent></testAgent>
+            </properties>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <!-- Code Coverage -->
+                        <plugin>
+                            <groupId>org.jacoco</groupId>
+                            <artifactId>jacoco-maven-plugin</artifactId>
+                            <configuration>
+                                <excludes>
+                                    <exclude>${sonar.coverage.exclusions}</exclude>
+                                </excludes>
+                            </configuration>
+                            <executions>
+                                <!-- Before running unit tests -->
+                                <execution>
+                                    <id>preTest</id>
+                                    <phase>process-test-classes</phase>
+                                    <goals>
+                                        <goal>prepare-agent</goal>
+                                    </goals>
+                                    <configuration>
+                                        <skip>${skipUnitTests}</skip>
+                                        <destFile>${project.build.directory}/jacoco.exec</destFile>
+                                        <propertyName>testAgent</propertyName>
+                                    </configuration>
+                                </execution>
+                                <!-- After running unit tests -->
+                                <execution>
+                                    <id>postTest</id>
+                                    <phase>test</phase>
+                                    <goals>
+                                        <goal>report</goal>
+                                    </goals>
+                                    <configuration>
+                                        <skip>${skipUnitTests}</skip>
+                                        <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                        <!-- Update SureFire (already bound to test phase) -->
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-surefire-plugin</artifactId>
+                            <configuration>
+                                <argLine>@{testAgent} ${jvmArgs}</argLine>
+                                <skipTests>${skipUnitTests}</skipTests>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Run IT test with code coverage -->
+        <profile>
+            <id>integration-test</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src/test</exists>
+                </file>
+            </activation>
+            <properties>
+                <itAgent></itAgent>
+            </properties>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <!-- Code Coverage -->
+                        <plugin>
+                            <groupId>org.jacoco</groupId>
+                            <artifactId>jacoco-maven-plugin</artifactId>
+                            <configuration>
+                                <excludes>
+                                    <exclude>${sonar.coverage.exclusions}</exclude>
+                                </excludes>
+                            </configuration>
+                            <executions>
+                                <!-- Before running integration tests -->
+                                <execution>
+                                    <id>preIT</id>
+                                    <phase>pre-integration-test</phase>
+                                    <goals>
+                                        <goal>prepare-agent-integration</goal>
+                                    </goals>
+                                    <configuration>
+                                        <skip>${skipIntegrationTests}</skip>
+                                        <destFile>${project.build.directory}/jacoco-it.exec</destFile>
+                                        <propertyName>itAgent</propertyName>
+                                    </configuration>
+                                </execution>
+                                <!-- After running integration tests -->
+                                <execution>
+                                    <id>postIT</id>
+                                    <phase>post-integration-test</phase>
+                                    <goals>
+                                        <goal>report-integration</goal>
+                                    </goals>
+                                    <configuration>
+                                        <skip>${skipIntegrationTests}</skip>
+                                        <dataFile>${project.build.directory}/jacoco-it.exec</dataFile>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                        <!-- Use FailSafe to run integration tests -->
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-failsafe-plugin</artifactId>
+                            <configuration>
+                                <includes>**/*IntegrationTest.java</includes>
+                                <argLine>@{itAgent} ${jvmArgs}</argLine>
+                                <skipTests>${skipIntegrationTests}</skipTests>
+                            </configuration>
+                            <executions>
+                                <execution>
+                                    <goals>
+                                        <goal>integration-test</goal>
+                                        <goal>verify</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Attach sources-->
+        <profile>
+            <id>source</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-source-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>attach-source</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>jar-no-fork</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Attach Javadoc-->
+        <profile>
+            <id>javadoc</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-javadoc-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>attach-javadoc</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>jar</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Build Docker Image -->
+        <profile>
+            <id>docker-image</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/src/</exists>
+                </file>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.google.cloud.tools</groupId>
+                            <artifactId>jib-maven-plugin</artifactId>
+                            <configuration>
+                                <from>
+                                    <image>registry://${docker-registry-group.host-port}/${docker-base-image}</image>
+                                    <auth>
+                                        <username>${docker-registry-username}</username>
+                                        <password>${docker-registry-password}</password>
+                                    </auth>
+                                </from>
+                                <to>
+                                    <image>
+                                        ${docker-registry-hosted.host-port}/${root-project.name}/${project.artifactId}:${project.version}
+                                    </image>
+                                    <tags>
+                                        <tag>latest</tag>
+                                        <tag>${project.version}</tag>
+                                    </tags>
+                                    <auth>
+                                        <username>${docker-registry-username}</username>
+                                        <password>${docker-registry-password}</password>
+                                    </auth>
+                                </to>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <!-- Use in lifecycle -->
+                <plugins>
+                    <plugin>
+                        <groupId>com.google.cloud.tools</groupId>
+                        <artifactId>jib-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <!-- Private Nexus Maven Repository group with Maven Central proxy configured -->
+    <repositories>
+        <repository>
+            <id>maven-public</id>
+            <url>${maven-repository.host-port}/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <!-- Private Nexus Maven Repository for snapshots and releases (members of maven-public) -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <url>${maven-repository.host-port}/repository/maven-snapshots/</url>
+        </snapshotRepository>
+        <repository>
+            <id>nexus-releases</id>
+            <url>${maven-repository.host-port}/repository/maven-releases/</url>
+        </repository>
+    </distributionManagement>
+
+</project>
